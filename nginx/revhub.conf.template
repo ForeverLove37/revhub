@@ -266,23 +266,6 @@ server {
     resolver 1.1.1.1 1.0.0.1 valid=300s ipv6=off;
     resolver_timeout 5s;
 
-    location ^~ /__ghcr_blobs/ {
-        set $revhub_ghcr_blob_upstream pkg-containers.githubusercontent.com;
-        rewrite ^/__ghcr_blobs/(.*)$ /$1 break;
-        limit_except GET HEAD { deny all; }
-        proxy_http_version 1.1;
-        proxy_set_header Host pkg-containers.githubusercontent.com;
-        proxy_set_header Authorization "";
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Connection "";
-        proxy_ssl_server_name on;
-        proxy_ssl_name pkg-containers.githubusercontent.com;
-        proxy_redirect off;
-        proxy_pass https://$revhub_ghcr_blob_upstream$uri$is_args$args;
-    }
-
     location / {
         set $revhub_ghcr_upstream ghcr.io;
         proxy_http_version 1.1;
@@ -294,10 +277,29 @@ server {
         proxy_set_header Connection "";
         proxy_ssl_server_name on;
         proxy_ssl_name ghcr.io;
-        proxy_redirect ~^https?://pkg-containers\.githubusercontent\.com/(.*)$ /__ghcr_blobs/$1;
+        proxy_intercept_errors on;
+        recursive_error_pages on;
+        error_page 301 302 303 307 308 = @revhub_ghcr_cdn_redirect;
         proxy_hide_header WWW-Authenticate;
         add_header WWW-Authenticate $revhub_ghcr_authenticate always;
         proxy_pass https://$revhub_ghcr_upstream$request_uri;
+    }
+
+    location @revhub_ghcr_cdn_redirect {
+        set $revhub_ghcr_redirect_url $upstream_http_location;
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization "";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name $proxy_host;
+        proxy_intercept_errors on;
+        recursive_error_pages on;
+        error_page 301 302 303 307 308 = @revhub_ghcr_cdn_redirect;
+        proxy_pass $revhub_ghcr_redirect_url;
     }
 }
 
@@ -340,40 +342,6 @@ server {
         proxy_pass https://$revhub_docker_auth_upstream$request_uri;
     }
 
-    location ^~ /__docker_blobs/cloudfront/ {
-        set $revhub_docker_cloudfront_upstream production.cloudfront.docker.com;
-        rewrite ^/__docker_blobs/cloudfront/(.*)$ /$1 break;
-        limit_except GET HEAD { deny all; }
-        proxy_http_version 1.1;
-        proxy_set_header Host production.cloudfront.docker.com;
-        proxy_set_header Authorization "";
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Connection "";
-        proxy_ssl_server_name on;
-        proxy_ssl_name production.cloudfront.docker.com;
-        proxy_redirect off;
-        proxy_pass https://$revhub_docker_cloudfront_upstream$uri$is_args$args;
-    }
-
-    location ^~ /__docker_blobs/cloudflare/ {
-        set $revhub_docker_cloudflare_upstream production.cloudflare.docker.com;
-        rewrite ^/__docker_blobs/cloudflare/(.*)$ /$1 break;
-        limit_except GET HEAD { deny all; }
-        proxy_http_version 1.1;
-        proxy_set_header Host production.cloudflare.docker.com;
-        proxy_set_header Authorization "";
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Connection "";
-        proxy_ssl_server_name on;
-        proxy_ssl_name production.cloudflare.docker.com;
-        proxy_redirect off;
-        proxy_pass https://$revhub_docker_cloudflare_upstream$uri$is_args$args;
-    }
-
     location / {
         set $revhub_docker_upstream registry-1.docker.io;
         proxy_http_version 1.1;
@@ -385,11 +353,29 @@ server {
         proxy_set_header Connection "";
         proxy_ssl_server_name on;
         proxy_ssl_name registry-1.docker.io;
-        proxy_redirect ~^https?://production\.cloudfront\.docker\.com/(.*)$ /__docker_blobs/cloudfront/$1;
-        proxy_redirect ~^https?://production\.cloudflare\.docker\.com/(.*)$ /__docker_blobs/cloudflare/$1;
+        proxy_intercept_errors on;
+        recursive_error_pages on;
+        error_page 301 302 303 307 308 = @revhub_docker_cdn_redirect;
         proxy_hide_header WWW-Authenticate;
         add_header WWW-Authenticate $revhub_docker_authenticate always;
         proxy_pass https://$revhub_docker_upstream$request_uri;
+    }
+
+    location @revhub_docker_cdn_redirect {
+        set $revhub_docker_redirect_url $upstream_http_location;
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization "";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name $proxy_host;
+        proxy_intercept_errors on;
+        recursive_error_pages on;
+        error_page 301 302 303 307 308 = @revhub_docker_cdn_redirect;
+        proxy_pass $revhub_docker_redirect_url;
     }
 }
 
@@ -417,23 +403,6 @@ server {
     resolver 1.1.1.1 1.0.0.1 valid=300s ipv6=off;
     resolver_timeout 5s;
 
-    location ^~ /__gcr_blobs/ {
-        set $revhub_gcr_blob_upstream storage.googleapis.com;
-        rewrite ^/__gcr_blobs/(.*)$ /$1 break;
-        limit_except GET HEAD { deny all; }
-        proxy_http_version 1.1;
-        proxy_set_header Host storage.googleapis.com;
-        proxy_set_header Authorization "";
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Connection "";
-        proxy_ssl_server_name on;
-        proxy_ssl_name storage.googleapis.com;
-        proxy_redirect off;
-        proxy_pass https://$revhub_gcr_blob_upstream$uri$is_args$args;
-    }
-
     location / {
         set $revhub_gcr_upstream gcr.io;
         proxy_http_version 1.1;
@@ -445,10 +414,29 @@ server {
         proxy_set_header Connection "";
         proxy_ssl_server_name on;
         proxy_ssl_name gcr.io;
-        proxy_redirect ~^https?://storage\.googleapis\.com/(.*)$ /__gcr_blobs/$1;
+        proxy_intercept_errors on;
+        recursive_error_pages on;
+        error_page 301 302 303 307 308 = @revhub_gcr_cdn_redirect;
         proxy_hide_header WWW-Authenticate;
         add_header WWW-Authenticate $revhub_gcr_authenticate always;
         proxy_pass https://$revhub_gcr_upstream$request_uri;
+    }
+
+    location @revhub_gcr_cdn_redirect {
+        set $revhub_gcr_redirect_url $upstream_http_location;
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization "";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name $proxy_host;
+        proxy_intercept_errors on;
+        recursive_error_pages on;
+        error_page 301 302 303 307 308 = @revhub_gcr_cdn_redirect;
+        proxy_pass $revhub_gcr_redirect_url;
     }
 }
 
@@ -487,10 +475,29 @@ server {
         proxy_set_header Connection "";
         proxy_ssl_server_name on;
         proxy_ssl_name registry.k8s.io;
-        proxy_redirect off;
+        proxy_intercept_errors on;
+        recursive_error_pages on;
+        error_page 301 302 303 307 308 = @revhub_k8s_cdn_redirect;
         proxy_hide_header WWW-Authenticate;
         add_header WWW-Authenticate $revhub_k8s_authenticate always;
         proxy_pass https://$revhub_k8s_upstream$request_uri;
+    }
+
+    location @revhub_k8s_cdn_redirect {
+        set $revhub_k8s_redirect_url $upstream_http_location;
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization "";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name $proxy_host;
+        proxy_intercept_errors on;
+        recursive_error_pages on;
+        error_page 301 302 303 307 308 = @revhub_k8s_cdn_redirect;
+        proxy_pass $revhub_k8s_redirect_url;
     }
 }
 
@@ -518,23 +525,6 @@ server {
     resolver 1.1.1.1 1.0.0.1 valid=300s ipv6=off;
     resolver_timeout 5s;
 
-    location ^~ /__quay_blobs/ {
-        set $revhub_quay_blob_upstream cdn.quay.io;
-        rewrite ^/__quay_blobs/(.*)$ /$1 break;
-        limit_except GET HEAD { deny all; }
-        proxy_http_version 1.1;
-        proxy_set_header Host cdn.quay.io;
-        proxy_set_header Authorization "";
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header Connection "";
-        proxy_ssl_server_name on;
-        proxy_ssl_name cdn.quay.io;
-        proxy_redirect off;
-        proxy_pass https://$revhub_quay_blob_upstream$uri$is_args$args;
-    }
-
     location / {
         set $revhub_quay_upstream quay.io;
         proxy_http_version 1.1;
@@ -546,10 +536,29 @@ server {
         proxy_set_header Connection "";
         proxy_ssl_server_name on;
         proxy_ssl_name quay.io;
-        proxy_redirect ~^https?://cdn\.quay\.io/(.*)$ /__quay_blobs/$1;
+        proxy_intercept_errors on;
+        recursive_error_pages on;
+        error_page 301 302 303 307 308 = @revhub_quay_cdn_redirect;
         proxy_hide_header WWW-Authenticate;
         add_header WWW-Authenticate $revhub_quay_authenticate always;
         proxy_pass https://$revhub_quay_upstream$request_uri;
+    }
+
+    location @revhub_quay_cdn_redirect {
+        set $revhub_quay_redirect_url $upstream_http_location;
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Authorization "";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name $proxy_host;
+        proxy_intercept_errors on;
+        recursive_error_pages on;
+        error_page 301 302 303 307 308 = @revhub_quay_cdn_redirect;
+        proxy_pass $revhub_quay_redirect_url;
     }
 }
 

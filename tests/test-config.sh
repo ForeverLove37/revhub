@@ -72,9 +72,13 @@ for domain in hf.cloudengine.host hf.erailab.com raw.cloudengine.host ghcr.cloud
     rg -F "server_name ${domain};" "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
 done
 
-for relay in /__hf_xet/cas-server /__hf_xet/cas-bridge /__docker_blobs/cloudfront /__docker_blobs/cloudflare \
-    /__ghcr_blobs/ /__gcr_blobs/ /__quay_blobs/; do
+for relay in /__hf_xet/cas-server /__hf_xet/cas-bridge; do
     rg -F "${relay}" "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
+done
+
+for registry in ghcr docker gcr k8s quay; do
+    rg -F "error_page 301 302 303 307 308 = @revhub_${registry}_cdn_redirect;" "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
+    rg -F "location @revhub_${registry}_cdn_redirect" "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
 done
 
 test "$(rg -F -c 'proxy_pass https://$revhub_hf_upstream;' "${ROOT_DIR}/nginx/revhub.conf.template")" -eq 2

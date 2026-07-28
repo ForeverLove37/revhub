@@ -158,7 +158,7 @@ docker pull k8s.cloudengine.host/pause:3.9
 docker pull quay.cloudengine.host/prometheus/busybox:latest
 ```
 
-For private images, run `docker login` against the same RevHub hostname before pulling. Registry bearer-auth challenges for GHCR, Docker Hub, GCR, Kubernetes Registry, and Quay are retained through the proxy. GHCR package-CDN, Google Storage, and Quay CDN blob redirects are relayed through their matching RevHub hostnames.
+For private images, run `docker login` against the same RevHub hostname before pulling. Registry bearer-auth challenges for GHCR, Docker Hub, GCR, Kubernetes Registry, and Quay are retained through the proxy. All `301`, `302`, `303`, `307`, and `308` blob redirects from those registries are intercepted by Nginx and fetched server-side, including package CDNs, Google Storage, and AWS S3 origins.
 
 ### Civitai, Kaggle, Go, and HashiCorp
 
