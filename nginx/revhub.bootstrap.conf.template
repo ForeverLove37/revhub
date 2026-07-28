@@ -1,0 +1,16 @@
+# Installed temporarily while the HTTP-01 certificate for hf.erailab.com is issued.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name hf.cloudengine.host raw.cloudengine.host ghcr.cloudengine.host docker.cloudengine.host hf.erailab.com;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root __ACME_WEBROOT__;
+        default_type "text/plain";
+        try_files $uri =404;
+    }
+
+    location / {
+        return 308 https://$host$request_uri;
+    }
+}
