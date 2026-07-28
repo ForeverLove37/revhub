@@ -100,7 +100,7 @@ export HF_ENDPOINT=https://hf.cloudengine.host
 python -c 'from huggingface_hub import snapshot_download; snapshot_download("gpt2")'
 ```
 
-The alternative `https://hf.erailab.com` endpoint has the same proxy behavior. The proxy streams large LFS/model responses and allows unlimited request bodies. Hugging Face itself controls any response it sends, including its own content-delivery behavior; RevHub does not add redirect rules or redirect clients to storage nodes.
+The alternative `https://hf.erailab.com` endpoint has the same proxy behavior. The proxy streams large LFS/model responses and allows unlimited request bodies. Xet token responses are rewritten so `cas-server.xethub.hf.co` and `cas-bridge.xethub.hf.co` requests return through the selected Hugging Face RevHub hostname; do not set `HF_HUB_DISABLE_XET=1` for this deployment.
 
 ### GitHub raw files
 
@@ -146,7 +146,7 @@ docker login docker.cloudengine.host
 docker pull docker.cloudengine.host/your-account/private-image:tag
 ```
 
-Docker Hub's registry and token service use different upstream hosts. RevHub preserves the OCI Registry API and rewrites the bearer-auth realm to `docker.cloudengine.host/token`, then proxies that token request to `auth.docker.io`. This avoids the usual second direct connection to Docker Hub's auth service.
+Docker Hub's registry and token service use different upstream hosts. RevHub preserves the OCI Registry API and rewrites the bearer-auth realm to `docker.cloudengine.host/token`, then proxies that token request to `auth.docker.io`. Blob redirects to Docker's CloudFront and Cloudflare delivery hosts are rewritten to fixed RevHub relay paths, so layer downloads stay on the proxy.
 
 ### Other OCI registries
 
@@ -158,7 +158,7 @@ docker pull k8s.cloudengine.host/pause:3.9
 docker pull quay.cloudengine.host/prometheus/busybox:latest
 ```
 
-For private images, run `docker login` against the same RevHub hostname before pulling. Registry bearer-auth challenges for GHCR, Docker Hub, GCR, Kubernetes Registry, and Quay are retained through the proxy.
+For private images, run `docker login` against the same RevHub hostname before pulling. Registry bearer-auth challenges for GHCR, Docker Hub, GCR, Kubernetes Registry, and Quay are retained through the proxy. GHCR package-CDN, Google Storage, and Quay CDN blob redirects are relayed through their matching RevHub hostnames.
 
 ### Civitai, Kaggle, Go, and HashiCorp
 

@@ -346,8 +346,10 @@ main() {
 
     install -d -m 0755 "${ACME_WEBROOT}"
     backup_existing_site "${NGINX_CONFIG_DIR}/${NGINX_SITE_NAME}"
-    render_template "${SCRIPT_DIR}/nginx/revhub.bootstrap.conf.template" "${NGINX_CONFIG_DIR}/${NGINX_SITE_NAME}"
-    test_and_reload_nginx
+    if [ "${SKIP_CLOUD_CERT}" -eq 0 ] || [ "${SKIP_ERAILAB_CERT}" -eq 0 ]; then
+        render_template "${SCRIPT_DIR}/nginx/revhub.bootstrap.conf.template" "${NGINX_CONFIG_DIR}/${NGINX_SITE_NAME}"
+        test_and_reload_nginx
+    fi
 
     if [ "${SKIP_CLOUD_CERT}" -eq 0 ]; then
         request_cloudengine_certificate

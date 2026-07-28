@@ -72,6 +72,11 @@ for domain in hf.cloudengine.host hf.erailab.com raw.cloudengine.host ghcr.cloud
     rg -F "server_name ${domain};" "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
 done
 
+for relay in /__hf_xet/cas-server /__hf_xet/cas-bridge /__docker_blobs/cloudfront /__docker_blobs/cloudflare \
+    /__ghcr_blobs/ /__gcr_blobs/ /__quay_blobs/; do
+    rg -F "${relay}" "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
+done
+
 bash -c 'source "$1/mirror.sh" hf t >/dev/null && test "$HF_ENDPOINT" = "https://hf.cloudengine.host"' bash "${ROOT_DIR}"
 bash -c 'source "$1/mirror.sh" go t >/dev/null && test "$GOPROXY" = "https://goproxy.cloudengine.host,direct"' bash "${ROOT_DIR}"
 printf 'RevHub configuration templates and utility scripts are valid.\n'
