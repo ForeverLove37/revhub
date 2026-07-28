@@ -64,4 +64,14 @@ EOF
 done
 
 bash -n "${ROOT_DIR}/setup.sh"
-printf 'RevHub configuration templates and setup script are valid.\n'
+bash -n "${ROOT_DIR}/mirror.sh"
+
+for domain in hf.cloudengine.host hf.erailab.com raw.cloudengine.host ghcr.cloudengine.host docker.cloudengine.host \
+    gcr.cloudengine.host k8s.cloudengine.host quay.cloudengine.host civitai.cloudengine.host kaggle.cloudengine.host \
+    goproxy.cloudengine.host hashicorp.cloudengine.host; do
+    rg -F "server_name ${domain};" "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
+done
+
+bash -c 'source "$1/mirror.sh" hf t >/dev/null && test "$HF_ENDPOINT" = "https://hf.cloudengine.host"' bash "${ROOT_DIR}"
+bash -c 'source "$1/mirror.sh" go t >/dev/null && test "$GOPROXY" = "https://goproxy.cloudengine.host,direct"' bash "${ROOT_DIR}"
+printf 'RevHub configuration templates and utility scripts are valid.\n'

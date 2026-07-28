@@ -11,6 +11,13 @@ readonly CLOUD_DOMAINS=(
     "raw.cloudengine.host"
     "ghcr.cloudengine.host"
     "docker.cloudengine.host"
+    "gcr.cloudengine.host"
+    "k8s.cloudengine.host"
+    "quay.cloudengine.host"
+    "civitai.cloudengine.host"
+    "kaggle.cloudengine.host"
+    "goproxy.cloudengine.host"
+    "hashicorp.cloudengine.host"
 )
 readonly CLOUD_CERT_NAME="revhub-cloudengine"
 readonly ERAILAB_CERT_NAME="revhub-hf-erailab"
@@ -22,7 +29,7 @@ ACME_WEBROOT="/var/lib/revhub/acme"
 LETSENCRYPT_LIVE_DIR="/etc/letsencrypt/live"
 NGINX_CONFIG_DIR="/etc/nginx/conf.d"
 NGINX_SITE_NAME="revhub.conf"
-CF_PROPAGATION_SECONDS="90"
+CF_PROPAGATION_SECONDS="30"
 USE_STAGING=0
 SKIP_DNS=0
 SKIP_CLOUD_CERT=0
@@ -47,7 +54,7 @@ Options:
   --ip IPV4                       Public IPv4 for Cloudflare A records. Auto-detected if omitted.
   --env-file PATH                 File containing CF_ZONE_TOKEN (default: ./.env).
   --acme-webroot PATH             Webroot used for hf.erailab.com HTTP-01 challenges.
-  --dns-propagation-seconds N     Cloudflare DNS-01 propagation wait (default: 90).
+  --dns-propagation-seconds N     Cloudflare DNS-01 propagation wait (default: 30).
   --staging                       Use the Let's Encrypt staging environment.
   --skip-dns                      Do not create or update Cloudflare DNS records.
   --skip-cloudengine-cert         Reuse an existing cloudengine.host certificate.
@@ -100,15 +107,30 @@ certbot_args() {
     fi
 }
 
+install_apt_packages() {
+    DEBIAN_FRONTEND=noninteractive apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confold" --fix-broken install -y
+    DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confold" install -y "$@"
+}
+
 install_cloudflare_certbot_plugin() {
     if certbot plugins 2>/dev/null | grep -q 'dns-cloudflare'; then
         return
     fi
     require_command apt-get
     log "Installing the Certbot Cloudflare DNS plugin."
-    apt-get update
-    apt-get install -y python3-certbot-dns-cloudflare
+    install_apt_packages python3-certbot-dns-cloudflare
     certbot plugins 2>/dev/null | grep -q 'dns-cloudflare' || die "Certbot Cloudflare DNS plugin was not installed."
+}
+
+install_nginx_certbot_plugin() {
+    if certbot plugins 2>/dev/null | grep -q 'nginx'; then
+        return
+    fi
+    require_command apt-get
+    log "Installing the Certbot Nginx plugin."
+    install_apt_packages python3-certbot-nginx
+    certbot plugins 2>/dev/null | grep -q 'nginx' || die "Certbot Nginx plugin was not installed."
 }
 
 cloudflare_request() {
@@ -187,22 +209,21 @@ request_cloudengine_certificate() {
     credentials_file="$(write_cloudflare_credentials)"
     install_cloudflare_certbot_plugin
     certbot_args args
-    log "Requesting or renewing the certificate for ${BASE_DOMAIN} proxy names."
+    log "Requesting or renewing the wildcard certificate for ${BASE_DOMAIN} proxy names."
     certbot certonly --dns-cloudflare --dns-cloudflare-credentials "${credentials_file}" \
         --dns-cloudflare-propagation-seconds "${CF_PROPAGATION_SECONDS}" \
-        --cert-name "${CLOUD_CERT_NAME}" --keep-until-expiring \
+        --cert-name "${CLOUD_CERT_NAME}" --renew-with-new-domains \
         "${args[@]}" \
-        -d "${CLOUD_DOMAINS[0]}" -d "${CLOUD_DOMAINS[1]}" -d "${CLOUD_DOMAINS[2]}" -d "${CLOUD_DOMAINS[3]}"
+        -d "*.${BASE_DOMAIN}"
 }
 
 request_erailab_certificate() {
     local args
     certbot_args args
-    install -d -m 0755 "${ACME_WEBROOT}"
-    log "Requesting or renewing the HTTP-01 certificate for ${ERAILAB_DOMAIN}."
-    certbot certonly --webroot --webroot-path "${ACME_WEBROOT}" \
-        --cert-name "${ERAILAB_CERT_NAME}" --keep-until-expiring \
-        "${args[@]}" -d "${ERAILAB_DOMAIN}"
+    install_nginx_certbot_plugin
+    log "Requesting or renewing the Nginx-managed certificate for ${ERAILAB_DOMAIN}."
+    certbot --nginx -d "${ERAILAB_DOMAIN}" --non-interactive --agree-tos -m "${EMAIL}" \
+        --cert-name "${ERAILAB_CERT_NAME}" --keep-until-expiring
 }
 
 render_template() {
@@ -217,7 +238,7 @@ render_template() {
 
 backup_existing_site() {
     local site_path="$1" backup_dir="/etc/nginx/revhub-backups"
-    [ -e "${site_path}" ] || return
+    [ -e "${site_path}" ] || return 0
     install -d -m 0700 "${backup_dir}"
     cp -a "${site_path}" "${backup_dir}/${NGINX_SITE_NAME}.$(date +%Y%m%d%H%M%S)"
 }

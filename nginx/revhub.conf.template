@@ -11,10 +11,25 @@ map $upstream_http_www_authenticate $revhub_docker_authenticate {
     ~*^Bearer\s+realm="https://auth\.docker\.io/token"(?<revhub_docker_auth_suffix>.*)$ "Bearer realm=\"https://docker.cloudengine.host/token\"$revhub_docker_auth_suffix";
 }
 
+map $upstream_http_www_authenticate $revhub_gcr_authenticate {
+    default $upstream_http_www_authenticate;
+    ~*^Bearer\s+realm="https://gcr\.io/v2/token"(?<revhub_gcr_auth_suffix>.*)$ "Bearer realm=\"https://gcr.cloudengine.host/v2/token\"$revhub_gcr_auth_suffix";
+}
+
+map $upstream_http_www_authenticate $revhub_k8s_authenticate {
+    default $upstream_http_www_authenticate;
+    ~*^Bearer\s+realm="https://registry\.k8s\.io/v2/token"(?<revhub_k8s_auth_suffix>.*)$ "Bearer realm=\"https://k8s.cloudengine.host/v2/token\"$revhub_k8s_auth_suffix";
+}
+
+map $upstream_http_www_authenticate $revhub_quay_authenticate {
+    default $upstream_http_www_authenticate;
+    ~*^Bearer\s+realm="https://quay\.io/v2/auth"(?<revhub_quay_auth_suffix>.*)$ "Bearer realm=\"https://quay.cloudengine.host/v2/auth\"$revhub_quay_auth_suffix";
+}
+
 server {
     listen 80;
     listen [::]:80;
-    server_name hf.cloudengine.host raw.cloudengine.host ghcr.cloudengine.host docker.cloudengine.host hf.erailab.com;
+    server_name hf.cloudengine.host raw.cloudengine.host ghcr.cloudengine.host docker.cloudengine.host gcr.cloudengine.host k8s.cloudengine.host quay.cloudengine.host civitai.cloudengine.host kaggle.cloudengine.host goproxy.cloudengine.host hashicorp.cloudengine.host hf.erailab.com;
 
     location ^~ /.well-known/acme-challenge/ {
         root __ACME_WEBROOT__;
@@ -235,5 +250,293 @@ server {
         proxy_hide_header WWW-Authenticate;
         add_header WWW-Authenticate $revhub_docker_authenticate always;
         proxy_pass https://$revhub_docker_upstream$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name gcr.cloudengine.host;
+
+    ssl_certificate __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/fullchain.pem;
+    ssl_certificate_key __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:RevHubTLS:10m;
+    ssl_session_timeout 1d;
+
+    client_max_body_size 0;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_cache off;
+    proxy_max_temp_file_size 0;
+    proxy_connect_timeout 30s;
+    proxy_send_timeout 3600s;
+    proxy_read_timeout 3600s;
+    send_timeout 3600s;
+
+    resolver 1.1.1.1 1.0.0.1 valid=300s ipv6=off;
+    resolver_timeout 5s;
+
+    location / {
+        set $revhub_gcr_upstream gcr.io;
+        proxy_http_version 1.1;
+        proxy_set_header Host gcr.io;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name gcr.io;
+        proxy_redirect off;
+        proxy_hide_header WWW-Authenticate;
+        add_header WWW-Authenticate $revhub_gcr_authenticate always;
+        proxy_pass https://$revhub_gcr_upstream$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name k8s.cloudengine.host;
+
+    ssl_certificate __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/fullchain.pem;
+    ssl_certificate_key __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:RevHubTLS:10m;
+    ssl_session_timeout 1d;
+
+    client_max_body_size 0;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_cache off;
+    proxy_max_temp_file_size 0;
+    proxy_connect_timeout 30s;
+    proxy_send_timeout 3600s;
+    proxy_read_timeout 3600s;
+    send_timeout 3600s;
+
+    resolver 1.1.1.1 1.0.0.1 valid=300s ipv6=off;
+    resolver_timeout 5s;
+
+    location / {
+        set $revhub_k8s_upstream registry.k8s.io;
+        proxy_http_version 1.1;
+        proxy_set_header Host registry.k8s.io;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name registry.k8s.io;
+        proxy_redirect off;
+        proxy_hide_header WWW-Authenticate;
+        add_header WWW-Authenticate $revhub_k8s_authenticate always;
+        proxy_pass https://$revhub_k8s_upstream$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name quay.cloudengine.host;
+
+    ssl_certificate __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/fullchain.pem;
+    ssl_certificate_key __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:RevHubTLS:10m;
+    ssl_session_timeout 1d;
+
+    client_max_body_size 0;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_cache off;
+    proxy_max_temp_file_size 0;
+    proxy_connect_timeout 30s;
+    proxy_send_timeout 3600s;
+    proxy_read_timeout 3600s;
+    send_timeout 3600s;
+
+    resolver 1.1.1.1 1.0.0.1 valid=300s ipv6=off;
+    resolver_timeout 5s;
+
+    location / {
+        set $revhub_quay_upstream quay.io;
+        proxy_http_version 1.1;
+        proxy_set_header Host quay.io;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name quay.io;
+        proxy_redirect off;
+        proxy_hide_header WWW-Authenticate;
+        add_header WWW-Authenticate $revhub_quay_authenticate always;
+        proxy_pass https://$revhub_quay_upstream$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name civitai.cloudengine.host;
+
+    ssl_certificate __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/fullchain.pem;
+    ssl_certificate_key __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:RevHubTLS:10m;
+    ssl_session_timeout 1d;
+
+    client_max_body_size 0;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_cache off;
+    proxy_max_temp_file_size 0;
+    proxy_connect_timeout 30s;
+    proxy_send_timeout 3600s;
+    proxy_read_timeout 3600s;
+    send_timeout 3600s;
+
+    resolver 1.1.1.1 1.0.0.1 valid=300s ipv6=off;
+    resolver_timeout 5s;
+
+    location / {
+        set $revhub_civitai_upstream civitai.com;
+        proxy_http_version 1.1;
+        proxy_set_header Host civitai.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_ssl_server_name on;
+        proxy_ssl_name civitai.com;
+        proxy_redirect off;
+        proxy_pass https://$revhub_civitai_upstream$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name kaggle.cloudengine.host;
+
+    ssl_certificate __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/fullchain.pem;
+    ssl_certificate_key __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:RevHubTLS:10m;
+    ssl_session_timeout 1d;
+
+    client_max_body_size 0;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_cache off;
+    proxy_max_temp_file_size 0;
+    proxy_connect_timeout 30s;
+    proxy_send_timeout 3600s;
+    proxy_read_timeout 3600s;
+    send_timeout 3600s;
+
+    resolver 1.1.1.1 1.0.0.1 valid=300s ipv6=off;
+    resolver_timeout 5s;
+
+    location / {
+        set $revhub_kaggle_upstream kaggle.com;
+        proxy_http_version 1.1;
+        proxy_set_header Host kaggle.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_ssl_server_name on;
+        proxy_ssl_name kaggle.com;
+        proxy_redirect off;
+        proxy_pass https://$revhub_kaggle_upstream$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name goproxy.cloudengine.host;
+
+    ssl_certificate __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/fullchain.pem;
+    ssl_certificate_key __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:RevHubTLS:10m;
+    ssl_session_timeout 1d;
+
+    client_max_body_size 0;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_cache off;
+    proxy_max_temp_file_size 0;
+    proxy_connect_timeout 30s;
+    proxy_send_timeout 3600s;
+    proxy_read_timeout 3600s;
+    send_timeout 3600s;
+
+    resolver 1.1.1.1 1.0.0.1 valid=300s ipv6=off;
+    resolver_timeout 5s;
+
+    location / {
+        set $revhub_goproxy_upstream proxy.golang.org;
+        proxy_http_version 1.1;
+        proxy_set_header Host proxy.golang.org;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name proxy.golang.org;
+        proxy_redirect off;
+        proxy_pass https://$revhub_goproxy_upstream$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name hashicorp.cloudengine.host;
+
+    ssl_certificate __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/fullchain.pem;
+    ssl_certificate_key __LETSENCRYPT_LIVE_DIR__/revhub-cloudengine/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:RevHubTLS:10m;
+    ssl_session_timeout 1d;
+
+    client_max_body_size 0;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_cache off;
+    proxy_max_temp_file_size 0;
+    proxy_connect_timeout 30s;
+    proxy_send_timeout 3600s;
+    proxy_read_timeout 3600s;
+    send_timeout 3600s;
+
+    resolver 1.1.1.1 1.0.0.1 valid=300s ipv6=off;
+    resolver_timeout 5s;
+
+    location / {
+        set $revhub_hashicorp_upstream releases.hashicorp.com;
+        proxy_http_version 1.1;
+        proxy_set_header Host releases.hashicorp.com;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header Connection "";
+        proxy_ssl_server_name on;
+        proxy_ssl_name releases.hashicorp.com;
+        proxy_redirect off;
+        proxy_pass https://$revhub_hashicorp_upstream$request_uri;
     }
 }

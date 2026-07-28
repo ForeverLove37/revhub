@@ -1,6 +1,6 @@
 # RevHub
 
-RevHub is a self-hosted Nginx reverse-proxy hub for Hugging Face, GitHub raw files, GitHub Container Registry (GHCR), and Docker Hub. It provisions the Cloudflare DNS records and TLS certificates required for these public endpoints:
+RevHub is a self-hosted Nginx reverse-proxy hub for model and dataset downloads, source files, OCI registries, Go modules, and HashiCorp releases. It provisions Cloudflare DNS records and a wildcard TLS certificate for these public endpoints:
 
 | Ingress address | Upstream | Intended use |
 | --- | --- | --- |
@@ -9,6 +9,13 @@ RevHub is a self-hosted Nginx reverse-proxy hub for Hugging Face, GitHub raw fil
 | `raw.cloudengine.host` | `raw.githubusercontent.com` | Raw GitHub file downloads |
 | `ghcr.cloudengine.host` | `ghcr.io` | OCI image pulls from GHCR |
 | `docker.cloudengine.host` | `registry-1.docker.io` and `auth.docker.io` | OCI image pulls from Docker Hub |
+| `gcr.cloudengine.host` | `gcr.io` | OCI image pulls from Google Container Registry |
+| `k8s.cloudengine.host` | `registry.k8s.io` | Kubernetes OCI image pulls |
+| `quay.cloudengine.host` | `quay.io` | Red Hat Quay OCI image pulls |
+| `civitai.cloudengine.host` | `civitai.com` | Civitai models and web traffic |
+| `kaggle.cloudengine.host` | `kaggle.com` | Kaggle datasets and web traffic |
+| `goproxy.cloudengine.host` | `proxy.golang.org` | Go module downloads |
+| `hashicorp.cloudengine.host` | `releases.hashicorp.com` | HashiCorp release downloads |
 
 The generated proxy configuration is deliberately streaming-oriented: it disables request and response buffering for large Hugging Face and OCI payloads, removes Nginx's body-size cap, uses one-hour transfer timeouts, and uses runtime DNS resolution for all upstream hosts. It does not create Nginx 302 redirects to external storage; upstream responses remain transparent.
 
@@ -18,7 +25,7 @@ The generated proxy configuration is deliberately streaming-oriented: it disable
 - Nginx, Certbot, `curl`, and `jq` installed. The script installs `python3-certbot-dns-cloudflare` when Certbot does not already have that plugin.
 - A Cloudflare API token with `Zone:Read` and `DNS:Edit` scoped to `cloudengine.host`.
 - `hf.erailab.com` already resolving directly to this server. RevHub never changes the `erailab.com` zone.
-- No existing Nginx virtual host claiming the five RevHub `server_name` values.
+- No existing Nginx virtual host claiming the twelve RevHub `server_name` values.
 
 The Cloudflare DNS records are intentionally DNS-only (`proxied: false`). Letting Cloudflare proxy these registry and large-download endpoints can introduce payload and protocol limits that this setup is intended to avoid.
 
@@ -36,9 +43,9 @@ sudo ./setup.sh --email admin@example.com
 
 The script performs the following in order:
 
-1. Detects the public IPv4 address and creates or updates the four `cloudengine.host` A records.
+1. Detects the public IPv4 address and creates or updates the eleven `cloudengine.host` A records.
 2. Installs a temporary HTTP-only Nginx site, allowing the `hf.erailab.com` HTTP-01 challenge through while redirecting other HTTP traffic to HTTPS.
-3. Uses Cloudflare DNS-01 to issue one SAN certificate for the four `cloudengine.host` endpoints, then uses HTTP-01 to issue the certificate for `hf.erailab.com`.
+3. Uses Cloudflare DNS-01 to issue a wildcard certificate for `*.cloudengine.host`, then uses Certbot's Nginx plugin to issue the certificate for `hf.erailab.com`.
 4. Installs the final TLS Nginx configuration at `/etc/nginx/conf.d/revhub.conf`, verifies Nginx, and reloads it.
 5. Installs a Certbot deploy hook that reloads Nginx after successful renewals.
 
@@ -104,7 +111,7 @@ curl -fsSL https://raw.cloudengine.host/owner/repository/main/install.sh | bash
 wget https://raw.cloudengine.host/owner/repository/main/config.example.yml
 ```
 
-`raw.githubusercontent.com` serves file contents, not Git's smart-HTTP protocol. Therefore a Git clone URL must not be rewritten to this hostname; `git clone https://raw.cloudengine.host/...` is not a valid Git clone endpoint. Supporting `github.com` clone traffic would require a separate proxy domain and routing policy, which is intentionally outside RevHub's declared scope.
+`raw.githubusercontent.com` serves file contents, not Git's smart-HTTP protocol. The optional `mirror.sh git` rewrite only changes already-raw URLs; `git clone https://raw.cloudengine.host/...` is not a valid clone endpoint.
 
 ### GitHub Container Registry
 
@@ -141,10 +148,48 @@ docker pull docker.cloudengine.host/your-account/private-image:tag
 
 Docker Hub's registry and token service use different upstream hosts. RevHub preserves the OCI Registry API and rewrites the bearer-auth realm to `docker.cloudengine.host/token`, then proxies that token request to `auth.docker.io`. This avoids the usual second direct connection to Docker Hub's auth service.
 
+### Other OCI registries
+
+Use the matching RevHub hostname in image references:
+
+```bash
+docker pull gcr.cloudengine.host/google-containers/pause:3.9
+docker pull k8s.cloudengine.host/pause:3.9
+docker pull quay.cloudengine.host/prometheus/busybox:latest
+```
+
+For private images, run `docker login` against the same RevHub hostname before pulling. Registry bearer-auth challenges for GHCR, Docker Hub, GCR, Kubernetes Registry, and Quay are retained through the proxy.
+
+### Civitai, Kaggle, Go, and HashiCorp
+
+```bash
+curl -fL https://civitai.cloudengine.host/api/v1/models
+curl -fL https://kaggle.cloudengine.host/
+GOPROXY=https://goproxy.cloudengine.host,direct go mod download
+curl -fLO https://hashicorp.cloudengine.host/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
+```
+
+### Shell mirror utility
+
+`mirror.sh` must be run with `source`, not `./mirror.sh`, so temporary environment variables affect the current terminal window:
+
+```bash
+source ./mirror.sh                 # all targets, temporary shell variables
+source ./mirror.sh hf t            # export HF_ENDPOINT in this shell
+source ./mirror.sh go l            # export GOPROXY and append it to your shell profile
+source ./mirror.sh git l           # persist the GitHub raw URL rewrite globally
+source ./mirror.sh docker t        # update Docker's registry mirror and print its restart command
+```
+
+Targets are `all` (the default), `hf`, `git`, `docker`, and `go`. Persistence is `t` (temporary, the default) or `l` (persistent). Permanent `hf` and `go` exports are appended to the active shell's `.bashrc` or `.zshrc`. Docker configuration is necessarily system-wide: the script safely adds `https://docker.cloudengine.host` to `/etc/docker/daemon.json`, restarting Docker automatically only when sourced as root. With a normal user, it prompts for `sudo` to update the file and prints the restart command.
+
+The Docker mirror setting handles Docker Hub defaults. Explicitly rewrite GHCR, GCR, Kubernetes Registry, and Quay image tags to their RevHub hostnames as shown above.
+
 ## Project layout
 
 ```text
 setup.sh                              Idempotent DNS, certificate, Nginx, and renewal automation
+mirror.sh                             Source-only shell and Docker mirror configuration utility
 nginx/revhub.bootstrap.conf.template  HTTP-01 challenge site used before TLS certificates exist
 nginx/revhub.conf.template            Final TLS reverse-proxy site
 tests/test-config.sh                  Shell and rendered-Nginx configuration validation

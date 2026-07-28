@@ -2,7 +2,7 @@
 server {
     listen 80;
     listen [::]:80;
-    server_name hf.cloudengine.host raw.cloudengine.host ghcr.cloudengine.host docker.cloudengine.host hf.erailab.com;
+    server_name hf.cloudengine.host raw.cloudengine.host ghcr.cloudengine.host docker.cloudengine.host gcr.cloudengine.host k8s.cloudengine.host quay.cloudengine.host civitai.cloudengine.host kaggle.cloudengine.host goproxy.cloudengine.host hashicorp.cloudengine.host hf.erailab.com;
 
     location ^~ /.well-known/acme-challenge/ {
         root __ACME_WEBROOT__;
