@@ -79,6 +79,7 @@ done
 
 test "$(rg -F -c 'proxy_pass https://$revhub_hf_upstream;' "${ROOT_DIR}/nginx/revhub.conf.template")" -eq 2
 test "$(rg -F -c 'proxy_redirect https://huggingface.co/ /;' "${ROOT_DIR}/nginx/revhub.conf.template")" -eq 2
+test "$(rg -F -c "sub_filter '\"xet\":' '\"nox\":';" "${ROOT_DIR}/nginx/revhub.conf.template")" -eq 2
 
 bash -c 'source "$1/mirror.sh" hf t >/dev/null && test "$HF_ENDPOINT" = "https://hf.cloudengine.host"' bash "${ROOT_DIR}"
 bash -c 'source "$1/mirror.sh" go t >/dev/null && test "$GOPROXY" = "https://goproxy.cloudengine.host,direct"' bash "${ROOT_DIR}"

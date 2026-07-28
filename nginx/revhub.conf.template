@@ -92,6 +92,8 @@ server {
         proxy_redirect ~^https?://cas-bridge\.xethub\.hf\.co/(.*)$ /__hf_xet/cas-bridge/$1;
         sub_filter_once off;
         sub_filter_types application/json application/problem+json;
+        sub_filter '"xet":' '"nox":';
+        sub_filter '"xet" :' '"nox" :';
         sub_filter 'https://cas-server.xethub.hf.co' '$revhub_hf_xet_base/__hf_xet/cas-server';
         sub_filter 'https://cas-bridge.xethub.hf.co' '$revhub_hf_xet_base/__hf_xet/cas-bridge';
         proxy_pass https://$revhub_hf_upstream;
@@ -172,6 +174,8 @@ server {
         proxy_redirect ~^https?://cas-bridge\.xethub\.hf\.co/(.*)$ /__hf_xet/cas-bridge/$1;
         sub_filter_once off;
         sub_filter_types application/json application/problem+json;
+        sub_filter '"xet":' '"nox":';
+        sub_filter '"xet" :' '"nox" :';
         sub_filter 'https://cas-server.xethub.hf.co' '$revhub_hf_xet_base/__hf_xet/cas-server';
         sub_filter 'https://cas-bridge.xethub.hf.co' '$revhub_hf_xet_base/__hf_xet/cas-bridge';
         proxy_pass https://$revhub_hf_upstream;

@@ -100,7 +100,7 @@ export HF_ENDPOINT=https://hf.cloudengine.host
 python -c 'from huggingface_hub import snapshot_download; snapshot_download("gpt2")'
 ```
 
-The alternative `https://hf.erailab.com` endpoint has the same proxy behavior. The proxy streams large LFS/model responses and allows unlimited request bodies. Xet token responses are rewritten so `cas-server.xethub.hf.co` and `cas-bridge.xethub.hf.co` requests return through the selected Hugging Face RevHub hostname; canonical Hugging Face API redirects also stay on the selected ingress. Do not set `HF_HUB_DISABLE_XET=1` for this deployment.
+The alternative `https://hf.erailab.com` endpoint has the same proxy behavior. The proxy streams large LFS/model responses and allows unlimited request bodies. It rewrites Xet metadata in Hugging Face API JSON to force the native client to select classic LFS downloads automatically, while canonical Hugging Face API redirects stay on the selected ingress. Do not set `HF_HUB_DISABLE_XET=1` for this deployment.
 
 ### GitHub raw files
 
