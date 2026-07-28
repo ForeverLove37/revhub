@@ -83,15 +83,18 @@ server {
         proxy_set_header Connection "";
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Accept-Encoding "";
+        proxy_pass_request_headers on;
         proxy_ssl_server_name on;
         proxy_ssl_name huggingface.co;
+        proxy_redirect https://huggingface.co/ /;
+        proxy_redirect http://huggingface.co/ /;
         proxy_redirect ~^https?://cas-server\.xethub\.hf\.co/(.*)$ /__hf_xet/cas-server/$1;
         proxy_redirect ~^https?://cas-bridge\.xethub\.hf\.co/(.*)$ /__hf_xet/cas-bridge/$1;
         sub_filter_once off;
         sub_filter_types application/json application/problem+json;
         sub_filter 'https://cas-server.xethub.hf.co' '$revhub_hf_xet_base/__hf_xet/cas-server';
         sub_filter 'https://cas-bridge.xethub.hf.co' '$revhub_hf_xet_base/__hf_xet/cas-bridge';
-        proxy_pass https://$revhub_hf_upstream$request_uri;
+        proxy_pass https://$revhub_hf_upstream;
     }
 
     location ^~ /__hf_xet/cas-server {
@@ -160,15 +163,18 @@ server {
         proxy_set_header Connection "";
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Accept-Encoding "";
+        proxy_pass_request_headers on;
         proxy_ssl_server_name on;
         proxy_ssl_name huggingface.co;
+        proxy_redirect https://huggingface.co/ /;
+        proxy_redirect http://huggingface.co/ /;
         proxy_redirect ~^https?://cas-server\.xethub\.hf\.co/(.*)$ /__hf_xet/cas-server/$1;
         proxy_redirect ~^https?://cas-bridge\.xethub\.hf\.co/(.*)$ /__hf_xet/cas-bridge/$1;
         sub_filter_once off;
         sub_filter_types application/json application/problem+json;
         sub_filter 'https://cas-server.xethub.hf.co' '$revhub_hf_xet_base/__hf_xet/cas-server';
         sub_filter 'https://cas-bridge.xethub.hf.co' '$revhub_hf_xet_base/__hf_xet/cas-bridge';
-        proxy_pass https://$revhub_hf_upstream$request_uri;
+        proxy_pass https://$revhub_hf_upstream;
     }
 
     location ^~ /__hf_xet/cas-server {
