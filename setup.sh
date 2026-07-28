@@ -20,8 +20,7 @@ EMAIL=""
 PUBLIC_IP=""
 ACME_WEBROOT="/var/lib/revhub/acme"
 LETSENCRYPT_LIVE_DIR="/etc/letsencrypt/live"
-NGINX_AVAILABLE_DIR="/etc/nginx/sites-available"
-NGINX_ENABLED_DIR="/etc/nginx/sites-enabled"
+NGINX_CONFIG_DIR="/etc/nginx/conf.d"
 NGINX_SITE_NAME="revhub.conf"
 CF_PROPAGATION_SECONDS="90"
 USE_STAGING=0
@@ -67,9 +66,8 @@ require_command() {
     command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"
 }
 
-require_debian_nginx_layout() {
-    [ -d "${NGINX_AVAILABLE_DIR}" ] || die "Expected Nginx directory is missing: ${NGINX_AVAILABLE_DIR}"
-    [ -d "${NGINX_ENABLED_DIR}" ] || die "Expected Nginx directory is missing: ${NGINX_ENABLED_DIR}"
+require_nginx_config_dir() {
+    [ -d "${NGINX_CONFIG_DIR}" ] || die "Expected Nginx configuration directory is missing: ${NGINX_CONFIG_DIR}"
 }
 
 validate_ipv4() {
@@ -224,10 +222,6 @@ backup_existing_site() {
     cp -a "${site_path}" "${backup_dir}/${NGINX_SITE_NAME}.$(date +%Y%m%d%H%M%S)"
 }
 
-enable_site() {
-    ln -sfn "${NGINX_AVAILABLE_DIR}/${NGINX_SITE_NAME}" "${NGINX_ENABLED_DIR}/${NGINX_SITE_NAME}"
-}
-
 test_and_reload_nginx() {
     nginx -t
     if systemctl is-active --quiet nginx; then
@@ -319,7 +313,7 @@ main() {
     require_command certbot
     require_command nginx
     require_command systemctl
-    require_debian_nginx_layout
+    require_nginx_config_dir
 
     if [ "${SKIP_DNS}" -eq 0 ]; then
         if [ -z "${PUBLIC_IP}" ]; then
@@ -330,9 +324,8 @@ main() {
     fi
 
     install -d -m 0755 "${ACME_WEBROOT}"
-    backup_existing_site "${NGINX_AVAILABLE_DIR}/${NGINX_SITE_NAME}"
-    render_template "${SCRIPT_DIR}/nginx/revhub.bootstrap.conf.template" "${NGINX_AVAILABLE_DIR}/${NGINX_SITE_NAME}"
-    enable_site
+    backup_existing_site "${NGINX_CONFIG_DIR}/${NGINX_SITE_NAME}"
+    render_template "${SCRIPT_DIR}/nginx/revhub.bootstrap.conf.template" "${NGINX_CONFIG_DIR}/${NGINX_SITE_NAME}"
     test_and_reload_nginx
 
     if [ "${SKIP_CLOUD_CERT}" -eq 0 ]; then
@@ -344,7 +337,7 @@ main() {
     verify_certificate_files "${CLOUD_CERT_NAME}"
     verify_certificate_files "${ERAILAB_CERT_NAME}"
 
-    render_template "${SCRIPT_DIR}/nginx/revhub.conf.template" "${NGINX_AVAILABLE_DIR}/${NGINX_SITE_NAME}"
+    render_template "${SCRIPT_DIR}/nginx/revhub.conf.template" "${NGINX_CONFIG_DIR}/${NGINX_SITE_NAME}"
     test_and_reload_nginx
     install_renewal_hook
     log "Deployment complete."

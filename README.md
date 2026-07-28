@@ -39,7 +39,7 @@ The script performs the following in order:
 1. Detects the public IPv4 address and creates or updates the four `cloudengine.host` A records.
 2. Installs a temporary HTTP-only Nginx site, allowing the `hf.erailab.com` HTTP-01 challenge through while redirecting other HTTP traffic to HTTPS.
 3. Uses Cloudflare DNS-01 to issue one SAN certificate for the four `cloudengine.host` endpoints, then uses HTTP-01 to issue the certificate for `hf.erailab.com`.
-4. Installs the final TLS Nginx site at `/etc/nginx/sites-available/revhub.conf`, enables it, verifies Nginx, and reloads it.
+4. Installs the final TLS Nginx configuration at `/etc/nginx/conf.d/revhub.conf`, verifies Nginx, and reloads it.
 5. Installs a Certbot deploy hook that reloads Nginx after successful renewals.
 
 Pass the address explicitly when automatic IPv4 discovery is unsuitable, such as behind a NAT:
