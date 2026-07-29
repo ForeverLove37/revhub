@@ -67,7 +67,7 @@ revhub_apply_docker() {
     fi
 
     temporary_config="$(mktemp)" || return 1
-    if [ -f "${docker_config}"; then
+    if [ -f "${docker_config}" ]; then
         if ! jq -e --arg mirror "${mirror}" '
             if type != "object" or ((."registry-mirrors" // []) | type) != "array" then
                 error("daemon.json must be an object with an array registry-mirrors value")

@@ -65,6 +65,7 @@ done
 
 bash -n "${ROOT_DIR}/setup.sh"
 bash -n "${ROOT_DIR}/mirror.sh"
+rg -F 'if [ -f "${docker_config}" ]; then' "${ROOT_DIR}/mirror.sh" >/dev/null
 
 for domain in hf.cloudengine.host hf.erailab.com raw.cloudengine.host ghcr.cloudengine.host docker.cloudengine.host \
     gcr.cloudengine.host k8s.cloudengine.host quay.cloudengine.host civitai.cloudengine.host kaggle.cloudengine.host \
@@ -80,6 +81,10 @@ for registry in ghcr docker gcr k8s quay; do
     rg -F "error_page 301 302 303 307 308 = @revhub_${registry}_cdn_redirect;" "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
     rg -F "location @revhub_${registry}_cdn_redirect" "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
 done
+
+rg -F 'map $upstream_http_location $revhub_gcr_redirect_target {' "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
+rg -F '~^/ https://gcr.io$upstream_http_location;' "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
+rg -F 'set $revhub_gcr_redirect_url $revhub_gcr_redirect_target;' "${ROOT_DIR}/nginx/revhub.conf.template" >/dev/null
 
 test "$(rg -F -c 'proxy_pass https://$revhub_hf_upstream;' "${ROOT_DIR}/nginx/revhub.conf.template")" -eq 2
 test "$(rg -F -c 'proxy_redirect https://huggingface.co/ /;' "${ROOT_DIR}/nginx/revhub.conf.template")" -eq 2
